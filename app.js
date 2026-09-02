@@ -1,4 +1,4 @@
-const ACCESS_CODE='SHIFT2026';const WEB_APP_URL='file:///C:/Users/USER/Downloads/ShiftSwap_Easy_GoogleSheets_Complete/website/index.html';let days=[],messages=[],month=new Date();const $=x=>document.getElementById(x);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const ACCESS_CODE='SHIFT2026';const WEB_APP_URL='https://script.google.com/macros/s/AKfycbxvrRsTGA5V-A2pkDZNLvY5Knb-SB--WPxgVR9WCDgKlswH6hk79-t91uM30G6aTv1R/exec';let days=[],messages=[],month=new Date();const $=x=>document.getElementById(x);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function toast(x){$('toast').textContent=x;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2200)}
 function unlock(){$('gate').style.display='none';$('app').classList.remove('hidden');load()}
 $('gateForm').onsubmit=e=>{e.preventDefault();if($('code').value.trim().toUpperCase()===ACCESS_CODE){sessionStorage.ok='1';unlock()}else $('err').textContent='Incorrect access code.'};
