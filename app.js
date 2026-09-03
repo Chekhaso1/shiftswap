@@ -4,56 +4,105 @@ function unlock(){$('gate').style.display='none';$('app').classList.remove('hidd
 $('gateForm').onsubmit=e=>{e.preventDefault();if($('code').value.trim().toUpperCase()===ACCESS_CODE){sessionStorage.ok='1';unlock()}else $('err').textContent='Incorrect access code.'};
 function api(action,extra={}){
   return new Promise((resolve,reject)=>{
-    const callback='shiftSwap_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    const params=new URLSearchParams();
-    params.set('action',action);
-    params.set('code',ACCESS_CODE);
-    Object.keys(extra).forEach(k=>params.set(k,String(extra[k]??'')));
-    params.set('callback',callback);
+    if(action==='list'){
+      const callback='shiftSwapRead_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      const script=document.createElement('script');
+      let finished=false;
+      const timer=setTimeout(()=>{
+        if(finished)return;
+        finished=true;
+        cleanup();
+        reject(new Error('Google Sheets connection timed out.'));
+      },15000);
 
-    const script=document.createElement('script');
-    let finished=false;
-    let timer=null;
+      function cleanup(){
+        clearTimeout(timer);
+        if(script.parentNode)script.parentNode.removeChild(script);
+        try{delete window[callback]}catch(e){window[callback]=undefined}
+      }
 
-    function cleanup(){
-      if(timer)clearTimeout(timer);
-      if(script.parentNode)script.parentNode.removeChild(script);
-      try{delete window[callback]}catch(e){window[callback]=undefined}
+      window[callback]=data=>{
+        if(finished)return;
+        finished=true;
+        cleanup();
+        resolve(data);
+      };
+
+      script.onerror=()=>{
+        if(finished)return;
+        finished=true;
+        cleanup();
+        reject(new Error('Google Sheets connection failed.'));
+      };
+
+      script.src=WEB_APP_URL+'?action=list&code='+encodeURIComponent(ACCESS_CODE)+'&callback='+encodeURIComponent(callback)+'&_='+Date.now();
+      document.head.appendChild(script);
+      return;
     }
 
-    window[callback]=function(data){
-      if(finished)return;
-      finished=true;
-      cleanup();
-      if(data && data.ok===false) reject(new Error(data.error||'Google Sheets error.'));
-      else resolve(data);
+    const iframe=document.createElement('iframe');
+    iframe.name='shiftSwapPost_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    iframe.style.display='none';
+    document.body.appendChild(iframe);
+
+    const form=document.createElement('form');
+    form.method='POST';
+    form.action=WEB_APP_URL;
+    form.target=iframe.name;
+    form.style.display='none';
+
+    const fields={action,code:ACCESS_CODE,...extra};
+    Object.keys(fields).forEach(key=>{
+      const input=document.createElement('input');
+      input.type='hidden';
+      input.name=key;
+      input.value=String(fields[key]??'');
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+
+    let finished=false;
+    const cleanup=()=>{
+      if(form.parentNode)form.parentNode.removeChild(form);
+      setTimeout(()=>{if(iframe.parentNode)iframe.parentNode.removeChild(iframe)},500);
     };
 
-    script.onerror=function(){
-      if(finished)return;
-      finished=true;
-      cleanup();
-      reject(new Error('Google Sheets connection failed. Check the Apps Script Web App deployment.'));
-    };
-
-    script.src=WEB_APP_URL+'?'+params.toString();
-    document.head.appendChild(script);
-
-    timer=setTimeout(function(){
+    const timer=setTimeout(()=>{
       if(finished)return;
       finished=true;
       cleanup();
       reject(new Error('Google Sheets connection timed out.'));
     },15000);
+
+    iframe.onload=()=>{
+      if(finished)return;
+      finished=true;
+      clearTimeout(timer);
+      cleanup();
+      // The response is cross-origin, so we cannot read it.
+      // Reloading through JSONP verifies/refreshes the shared data.
+      setTimeout(()=>{
+        api('list').then(resolve).catch(reject);
+      },700);
+    };
+
+    try{
+      form.submit();
+    }catch(e){
+      if(finished)return;
+      finished=true;
+      clearTimeout(timer);
+      cleanup();
+      reject(e);
+    }
   });
 }
 
 async function load(){
   try{
     const r=await api('list');
-
-    if(!r || !r.ok)
-      throw Error((r&&r.error)||'Unable to load ShiftSwap data.');
+    if(!r || !r.ok)throw Error((r&&r.error)||'Unable to load ShiftSwap data.');
 
     days=(r.days||[]).map(a=>Array.isArray(a)?{
       id:a[0],name:a[1],date:a[2],note:a[3],status:a[4],
