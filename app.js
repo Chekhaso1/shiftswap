@@ -1,49 +1,15 @@
-const ACCESS_CODE='SHIFT2026';const WEB_APP_URL='https://script.google.com/macros/s/AKfycbxvrRsTGA5V-A2pkDZNLvY5Knb-SB--WPxgVR9WCDgKlswH6hk79-t91uM30G6aTv1R/exec';let days=[],messages=[],month=new Date();const $=x=>document.getElementById(x);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const ACCESS_CODE='SHIFT2026';const WEB_APP_URL='https://script.google.com/macros/s/AKfycbxvrRsTGA5V-A2pkDZNLvY5Knb-SB--WPxgVR9WCDgklswH6hk79-t91uM30G6aTv1R/exec';let days=[],messages=[],month=new Date();const $=x=>document.getElementById(x);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function toast(x){$('toast').textContent=x;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2200)}
 function unlock(){$('gate').style.display='none';$('app').classList.remove('hidden');load()}
 $('gateForm').onsubmit=e=>{e.preventDefault();if($('code').value.trim().toUpperCase()===ACCESS_CODE){sessionStorage.ok='1';unlock()}else $('err').textContent='Incorrect access code.'};
-async function api(action,extra={}){if(WEB_APP_URL.includes('PASTE_'))throw Error('Paste your Apps Script Web App URL into website/app.js first.');const r=await fetch(WEB_APP_URL,{method:'POST',body:JSON.stringify({action,code:ACCESS_CODE,...extra})});return r.json()}
-async function load(){
-  try{
-    const r=await api('list');
-
-    if(!r.ok) throw Error(r.error);
-
-    days=(r.days||[]).map(a=>{
-      if(Array.isArray(a)){
-        return {
-          id:a[0],
-          name:a[1],
-          date:a[2],
-          note:a[3],
-          status:a[4],
-          pickedUpBy:a[5],
-          createdAt:a[6],
-          pickedUpAt:a[7]
-        };
-      }
-      return a;
-    });
-
-    messages=(r.messages||[]).map(a=>{
-      if(Array.isArray(a)){
-        return {
-          id:a[0],
-          name:a[1],
-          message:a[2],
-          createdAt:a[3]
-        };
-      }
-      return a;
-    });
-
-    render();
-
-  }catch(e){
-    render();
-    toast(e.message);
-  }
-}
+async function api(action,extra={}){
+  const r=await fetch(WEB_APP_URL,{
+    method:'POST',
+    body:JSON.stringify({action,code:ACCESS_CODE,...extra})
+  });
+  if(!r.ok)throw Error('Google Sheets connection failed ('+r.status+').');
+  return r.json();
+}async function load(){try{const r=await api('list');if(!r.ok)throw Error(r.error);days=(r.days||[]).map(a=>Array.isArray(a)?({id:a[0],name:a[1],date:a[2],note:a[3],status:a[4],pickedUpBy:a[5],createdAt:a[6],pickedUpAt:a[7]}):a);messages=(r.messages||[]).map(a=>Array.isArray(a)?({id:a[0],name:a[1],message:a[2],createdAt:a[3]}):a);render()}catch(e){render();toast(e.message)}}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));$(b.dataset.tab).classList.add('active');b.classList.add('active')});
 function openModal(){$('modal').classList.remove('hidden');$('name').value=localStorage.ssname||''}$('postTop').onclick=openModal;$('postHero').onclick=openModal;$('close').onclick=()=>$('modal').classList.add('hidden');
 $('postForm').onsubmit=async e=>{e.preventDefault();try{let name=$('name').value.trim();localStorage.ssname=name;let r=await api('addDay',{name,date:$('date').value,note:$('note').value.trim()});if(!r.ok)throw Error(r.error);e.target.reset();$('modal').classList.add('hidden');toast('Saved to Google Sheets.');load()}catch(x){alert(x.message)}};
